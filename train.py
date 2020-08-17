@@ -59,7 +59,7 @@ class ImagesDataset(Dataset):
         with open(json_path, 'r') as file:
             dataset = file.readlines()
 
-        self.dataset = [json.load(l) for l in dataset]
+        self.dataset = [json.loads(l) for l in dataset]
 
         self.transform = transforms.Compose([
             transforms.Resize(image_size),
