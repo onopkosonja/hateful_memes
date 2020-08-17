@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning.loggers import NeptuneLogger
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 import os
+import json
 import torch
 import neptune
 import multiprocessing
@@ -51,18 +52,14 @@ def expand_greyscale(t):
 
 
 class ImagesDataset(Dataset):
-    def __init__(self, folder, image_size):
+    def __init__(self, json_path, folder, image_size):
         super().__init__()
         self.folder = folder
-        self.paths = []
-        print(folder)
 
-        for path in Path(f'{folder}').glob('**/*'):
-            _, ext = os.path.splitext(path)
-            if ext.lower() in IMAGE_EXTS:
-                self.paths.append(path)
+        with open(json_path, 'r') as file:
+            dataset = file.readlines()
 
-        print(f'{len(self.paths)} images found')
+        self.dataset = [json.load(l) for l in dataset]
 
         self.transform = transforms.Compose([
             transforms.Resize(image_size),
@@ -72,10 +69,10 @@ class ImagesDataset(Dataset):
         ])
 
     def __len__(self):
-        return len(self.paths)
+        return len(self.dataset)
 
     def __getitem__(self, index):
-        path = self.paths[index]
+        path = os.path.join(self.folder, self.dataset[index]['img'])
         img = Image.open(path)
         img = img.convert('RGB')
         return self.transform(img)
@@ -83,10 +80,10 @@ class ImagesDataset(Dataset):
 
 if __name__ == '__main__':
     RESNET       = models.resnet50(pretrained=False)
-    BATCH_SIZE   = 32  #
+    BATCH_SIZE   = 32
     EPOCHS       = 1000
     LR           = 3e-4
-    NUM_GPUS     = 0   #
+    NUM_GPUS     = 1
     IMAGE_SIZE   = 256
     IMAGE_EXTS   = ['.png']
     NUM_WORKERS  = multiprocessing.cpu_count()
@@ -97,10 +94,10 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-    TRAIN_DATASET = ImagesDataset('data/fake_train/', IMAGE_SIZE)
+    TRAIN_DATASET = ImagesDataset('data/train.jsonl', 'data/img', IMAGE_SIZE)
     TRAIN_LOADER = DataLoader(TRAIN_DATASET, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
-    VAL_DATASET = ImagesDataset('data/fake_val/', IMAGE_SIZE)
+    VAL_DATASET = ImagesDataset('data/dev.jsonl', 'data/img', IMAGE_SIZE)
     VAL_LOADER = DataLoader(VAL_DATASET, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
     neptune.init(
@@ -117,7 +114,7 @@ if __name__ == '__main__':
 
     checkpoint_callback = ModelCheckpoint(
         filepath='checkpoints/resnet50_not_pretrained' + '_{epoch}',
-        save_top_k=-1, monitor='train_loss', period=20)
+        save_top_k=5, monitor='val_loss')
 
     neptune_logger = NeptuneLogger(
         api_key="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vdWkubmVwdHVuZS5haSIsImFwaV91cmwiOiJodHRwczovL3VpLm5lcHR1bmUuYWkiLCJhcGlfa2V5IjoiNWYyMzI4ZTYtYmNhYy00MTVjLTg3ZTQtMGJhMzRkNmNiNTBiIn0=",
