@@ -94,10 +94,10 @@ if __name__ == '__main__':
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-    TRAIN_DATASET = ImagesDataset('data/train.jsonl', 'data/img', IMAGE_SIZE)
+    TRAIN_DATASET = ImagesDataset('data/train.jsonl', 'data', IMAGE_SIZE)
     TRAIN_LOADER = DataLoader(TRAIN_DATASET, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
-    VAL_DATASET = ImagesDataset('data/dev.jsonl', 'data/img', IMAGE_SIZE)
+    VAL_DATASET = ImagesDataset('data/dev.jsonl', 'data', IMAGE_SIZE)
     VAL_LOADER = DataLoader(VAL_DATASET, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
     neptune.init(
